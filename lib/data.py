@@ -731,6 +731,15 @@ def read_pure_data(path, split="train"):
     return X_num, X_cat, y
 
 
+# change read data here
+def _read_pure_data(real_data_path, y_column, cat_columns=None, num_columns=None):
+    data = pd.read_csv(real_data_path)
+    X_cat = data.loc[cat_columns].to_numpy()
+    X_num = data.loc[num_columns].to_numpy()
+    y = data[y_column].to_numpy()
+    return X_num, X_cat, y
+
+
 def read_changed_val(path, val_size=0.2):
     path = Path(path)
     X_num_train, X_cat_train, y_train = read_pure_data(path, "train")
