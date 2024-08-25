@@ -478,6 +478,12 @@ class GaussianMultinomialDiffusion(torch.nn.Module):
         return log_model_pred
 
     @torch.no_grad()
+    def _p_sample(self, model_out, log_x, t, out_dict):
+        model_log_prob = self.p_pred(model_out, log_x=log_x, t=t, out_dict=out_dict)
+        out = self.log_sample_categorical(model_log_prob)
+        return out
+
+    # @torch.no_grad()
     def p_sample(self, model_out, log_x, t, out_dict):
         model_log_prob = self.p_pred(model_out, log_x=log_x, t=t, out_dict=out_dict)
         out = self.log_sample_categorical(model_log_prob)
@@ -948,7 +954,7 @@ class GaussianMultinomialDiffusion(torch.nn.Module):
         return sample, out_dict
 
     @torch.no_grad()
-    def sample(self, num_samples, y_dist):
+    def _sample(self, num_samples, y_dist):
         b = num_samples
         device = self.log_alpha.device
         z_norm = torch.randn((b, self.num_numerical_features), device=device)
@@ -958,6 +964,46 @@ class GaussianMultinomialDiffusion(torch.nn.Module):
         if has_cat:
             uniform_logits = torch.zeros(
                 (b, len(self.num_classes_expanded)), device=device
+            )
+            log_z = self.log_sample_categorical(uniform_logits)
+
+        y = torch.multinomial(y_dist, num_samples=b, replacement=True)
+        out_dict = {"y": y.long().to(device)}
+        for i in reversed(range(0, self.num_timesteps)):
+            print(f"Sample timestep {i:4d}", end="\r")
+            t = torch.full((b,), i, device=device, dtype=torch.long)
+            model_out = self._denoise_fn(
+                torch.cat([z_norm, log_z], dim=1).float(), t, **out_dict
+            )
+            model_out_num = model_out[:, : self.num_numerical_features]
+            model_out_cat = model_out[:, self.num_numerical_features :]
+            z_norm = self.gaussian_p_sample(
+                model_out_num, z_norm, t, clip_denoised=False
+            )["sample"]
+            if has_cat:
+                log_z = self.p_sample(model_out_cat, log_z, t, out_dict)
+
+        print()
+        z_ohe = torch.exp(log_z).round()
+        z_cat = log_z
+        if has_cat:
+            z_cat = ohe_to_categories(z_ohe, self.num_classes)
+        sample = torch.cat([z_norm, z_cat], dim=1).cpu()
+        return sample, out_dict
+
+    # @torch.no_grad()
+    def sample(self, num_samples, y_dist):
+        b = num_samples
+        device = self.log_alpha.device
+        z_norm = torch.randn(
+            (b, self.num_numerical_features), device=device, requires_grad=True
+        )
+
+        has_cat = self.num_classes[0] != 0
+        log_z = torch.zeros((b, 0), device=device, requires_grad=True).float()
+        if has_cat:
+            uniform_logits = torch.zeros(
+                (b, len(self.num_classes_expanded)), device=device, requires_grad=True
             )
             log_z = self.log_sample_categorical(uniform_logits)
 

@@ -32,7 +32,9 @@ def main():
     parser.add_argument(
         "--config",
         metavar="FILE",
-        default="exp/churn2/many-exps/config.toml",
+        # default="exp/churn2/many-exps/config.toml",
+        default="/mnt/SSD/github/biobank-anonymization-visualization/database/gan_optimize/test-churn2-tabddpm-lv_2-bs_256-epochs_5000-df_8-dm_7-dl_10-nl_3-lr_2.11e-04-model_mlp-moment_2-losscorcorr_7.61e+00-lossdis_9.39e-04-condvec_1/_config.toml",
+        # default="exp/abalone/ddpm_mlp_best/config.toml",
     )
     parser.add_argument(
         "--train",
